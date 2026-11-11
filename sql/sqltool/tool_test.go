@@ -7,6 +7,8 @@ package sqltool_test
 import (
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -434,4 +436,31 @@ func requireFileEqual(t *testing.T, d migrate.Dir, name, contents string) {
 	c, err := fs.ReadFile(d, name)
 	require.NoError(t, err)
 	require.Equal(t, contents, string(c))
+}
+
+func TestGooseStmtContainingDown(t *testing.T) {
+	// Statement lines that merely contain the word "Down" must not be
+	// mistaken for the "-- +goose Down" annotation and dropped.
+	dir := t.TempDir()
+	const src = `-- +goose Up
+CREATE TABLE items (id serial PRIMARY KEY, label text NOT NULL, "CountDown" int);
+
+INSERT INTO items (label)
+VALUES ('Download report')
+ON CONFLICT DO NOTHING;
+
+-- +goose Down
+DROP TABLE items;
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "1_demo.sql"), []byte(src), 0600))
+	d, err := sqltool.NewGooseDir(dir)
+	require.NoError(t, err)
+	files, err := d.Files()
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	stmts, err := files[0].StmtDecls()
+	require.NoError(t, err)
+	require.Len(t, stmts, 2)
+	require.Equal(t, `CREATE TABLE items (id serial PRIMARY KEY, label text NOT NULL, "CountDown" int);`, stmts[0].Text)
+	require.Equal(t, "INSERT INTO items (label)\nVALUES ('Download report')\nON CONFLICT DO NOTHING;", stmts[1].Text)
 }

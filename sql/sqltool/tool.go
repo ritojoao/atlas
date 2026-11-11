@@ -478,7 +478,7 @@ const (
 )
 
 var (
-	reGoosePragma  = regexp.MustCompile(regexp.QuoteMeta(goosePragma) + " Up|Down|StatementBegin|StatementEnd")
+	reGoosePragma  = regexp.MustCompile(regexp.QuoteMeta(goosePragma) + " (?:Up|Down|StatementBegin|StatementEnd)")
 	reDBMatePragma = regexp.MustCompile(dbmatePragma + "up|down")
 )
 
