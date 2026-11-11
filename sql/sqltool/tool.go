@@ -505,7 +505,7 @@ func (ff *flywayFiles) add(path string) error {
 			vs []string
 		)
 		for _, v := range ff.versioned {
-			if v > bv {
+			if flywayVersion(v) > bv {
 				vs = append(vs, v)
 			}
 		}

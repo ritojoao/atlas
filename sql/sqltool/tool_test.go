@@ -435,3 +435,22 @@ func requireFileEqual(t *testing.T, d migrate.Dir, name, contents string) {
 	require.NoError(t, err)
 	require.Equal(t, contents, string(c))
 }
+
+func TestFlywayBaselineNestedVersioned(t *testing.T) {
+	// The baseline must be compared with the version of the nested migrations,
+	// and not with their path (the name of the directory they reside in).
+	for _, d := range []string{"0dir", "1dir", "4dir", "5dir", "adir"} {
+		t.Run(d, func(t *testing.T) {
+			fs := fstest.MapFS{
+				d + "/V9__old.sql": &fstest.MapFile{Data: []byte("V9")},
+				d + "/V1__old.sql": &fstest.MapFile{Data: []byte("V1")},
+				"B5__base.sql":     &fstest.MapFile{Data: []byte("B5")},
+			}
+			sum, err := (&sqltool.FlywayDir{&fs}).Checksum()
+			require.NoError(t, err)
+			require.Len(t, sum, 2)
+			require.Equal(t, "B5__base.sql", sum[0].N)
+			require.Equal(t, d+"/V9__old.sql", sum[1].N)
+		})
+	}
+}
