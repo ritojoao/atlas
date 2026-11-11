@@ -425,6 +425,13 @@ alter table users drop column id;
 	f = migrate.NewLocalFile("1.sql", []byte("-- atlas:lint ignore\n\n"))
 	require.Equal(t, []string{"ignore"}, f.Directive("lint"), "double newline as directive separator")
 
+	// The txmode directive is honored without an empty line after it.
+	f = migrate.NewLocalFile("1.sql", []byte(`-- atlas:txmode none
+CREATE INDEX CONCURRENTLY idx ON t (c);
+`))
+	require.Equal(t, []string{"none"}, f.Directive("txmode"), "txmode without double newline")
+	require.Empty(t, f.Directive("lint"), "other directives still need the double newline")
+
 	// Multiple occurrences of the same directive.
 	f = migrate.NewLocalFile("1.sql", []byte(`-- atlas:import foo
 -- atlas:import

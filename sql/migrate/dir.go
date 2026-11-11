@@ -305,7 +305,13 @@ func parseDirective(content string) (string, string) {
 // File directives are located at the top of the file and should not be associated with any
 // statement. Hence, double new lines are used to separate file directives from its content.
 func (f *LocalFile) Directive(name string) (ds []string) {
-	for _, c := range f.comments() {
+	cs := f.comments()
+	// The txmode directive can only be set per file (never per statement). Hence, it is
+	// honored even if it is not separated from the first statement by an empty line.
+	if cs == nil && name == "txmode" {
+		cs, _ = f.leadingComments()
+	}
+	for _, c := range cs {
 		if d, ok := directive(c, name); ok {
 			ds = append(ds, d)
 		}
@@ -329,6 +335,18 @@ func (f *LocalFile) AddDirective(name string, args ...string) {
 }
 
 func (f *LocalFile) comments() []string {
+	comments, content := f.leadingComments()
+	// File comments are separated by double newlines from file content (detached from actual statements).
+	// However, if the file does not contain any statements (only comments, such as atlas:import) then the
+	// collected comments should treat as file comments.
+	if !strings.HasPrefix(strings.TrimLeft(content, " \t"), "\n") && content != "" {
+		return nil
+	}
+	return comments
+}
+
+// leadingComments returns the comments at the top of the file and the content that follows them.
+func (f *LocalFile) leadingComments() ([]string, string) {
 	var (
 		comments []string
 		content  = string(f.b)
@@ -343,13 +361,7 @@ func (f *LocalFile) comments() []string {
 		comments = append(comments, strings.TrimSpace(content[:idx]))
 		content = content[idx+1:]
 	}
-	// File comments are separated by double newlines from file content (detached from actual statements).
-	// However, if the file does not contain any statements (only comments, such as atlas:import) then the
-	// collected comments should treat as file comments.
-	if !strings.HasPrefix(strings.TrimLeft(content, " \t"), "\n") && content != "" {
-		return nil
-	}
-	return comments
+	return comments, content
 }
 
 type (
